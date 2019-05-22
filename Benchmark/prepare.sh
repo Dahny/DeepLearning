@@ -13,6 +13,6 @@ for size in 750 500 250
 do
   ffmpeg -i video/source.mp4 -filter:v "crop=1080:1080:420:0,scale=$size:$size" "video/cropped_$size.mp4"
   mkdir video/frames_$size
-  ffmpeg -i video/cropped_$size.mp4 video/frames_$size/frame%04d.jpg -hide_banner 
+  ffmpeg -i video/cropped_$size.mp4 -q:v 2 video/frames_$size/frame%04d.jpg  -hide_banner 
 done
 
