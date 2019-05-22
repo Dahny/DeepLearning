@@ -4,6 +4,10 @@ provider "google" {
   region      = "europe-west4"
 }
 
+variable "name" {
+  type = "string"
+}
+
 data "google_compute_image" "my_image" {
   family  = "pytorch-1-1-gpu"
   project = "ml-images"
@@ -42,25 +46,28 @@ resource "google_compute_instance" "default" {
     scopes = ["userinfo-email", "compute-ro", "storage-ro"]
   }
 
+
+
   # Copy the whole project to the CLAUWD
   provisioner "file" {
     connection {
       type     = "ssh"
-      user     = "tom"
+      user     = "${var.name}"
     }
-    source = "../"
-    destination = "~/deeplearning"
+    source = "../../DeepLearning"
+    destination = "~/"
   }
 
   # Run the prepare script
   provisioner "remote-exec" {
     connection {
       type     = "ssh"
-      user     = "tom"
+      user     = "${var.name}"
     }
     inline = [
-      "sudo chmod +x ~/Benchmark/prepare.sh",
-      "~/Benchmark/prepare.sh"
+      "cd ~/DeepLearning/Benchmark",
+      "sudo chmod +x ./prepare.sh",
+      "./prepare.sh"
     ]
   }
 
