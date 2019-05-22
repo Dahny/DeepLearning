@@ -1,2 +1,8 @@
 # Ignore video files etc.
 Benchmark/video/*
+
+# Don't put secrets in version control lolz
+terraform/account.json
+terraform/.terraform
+*.tfstate
+*.tfstate.backup
