@@ -7,6 +7,7 @@ from os.path import basename
 from os.path import splitext
 from torchvision import transforms
 from torchvision.utils import save_image
+import numpy as np
 import time
 
 import net
@@ -135,54 +136,61 @@ style_tf = test_transform(args.style_size, args.crop)
 
 begin_time2 = 0
 end_time2 = 0
-benchmarks = []
+benchmarks250 = np.ndarray([3, 300])
+benchmarks500 = np.ndarray([3, 300])
+benchmarks750 = np.ndarray([3, 300])
 
-for content_path in content_paths:
-    if do_interpolation:  # one content image, N style image
-        style = torch.stack([style_tf(Image.open(p)) for p in style_paths])
-        content = content_tf(Image.open(content_path)) \
-            .unsqueeze(0).expand_as(style)
-        style = style.to(device)
-        content = content.to(device)
+base_content = content_path;
 
-        begin_time2 = time.time()
+# For each seperate benchmark
+for i in range(3):
 
-        with torch.no_grad():
-            output = style_transfer(vgg, decoder, content, style,
-                                    args.alpha, interpolation_weights)
-
-        end_time2 = time.time()
-        benchmarks.append(end_time2 - begin_time2)
-
-        output = output.cpu()
-        output_name = '{:s}/{:s}_interpolation{:s}'.format(
-            args.output, splitext(basename(content_path))[0], args.save_ext)
-        save_image(output, output_name)
-
-    else:  # process one content and one style
-        for style_path in style_paths:
-            content = content_tf(Image.open(content_path))
-            style = style_tf(Image.open(style_path))
-            if args.preserve_color:
-                style = coral(style, content)
-            style = style.to(device).unsqueeze(0)
-            content = content.to(device).unsqueeze(0)
+    for content_path in content_paths:
+        if do_interpolation:  # one content image, N style image
+            style = torch.stack([style_tf(Image.open(p)) for p in style_paths])
+            content = content_tf(Image.open(content_path)) \
+                .unsqueeze(0).expand_as(style)
+            style = style.to(device)
+            content = content.to(device)
 
             begin_time2 = time.time()
 
             with torch.no_grad():
                 output = style_transfer(vgg, decoder, content, style,
-                                        args.alpha)
+                                        args.alpha, interpolation_weights)
+
             end_time2 = time.time()
             benchmarks.append(end_time2 - begin_time2)
 
             output = output.cpu()
-
-            output_name = '{:s}/{:s}_stylized_{:s}{:s}'.format(
-                args.output, splitext(basename(content_path))[0],
-                splitext(basename(style_path))[0], args.save_ext
-            )
+            output_name = '{:s}/{:s}_interpolation{:s}'.format(
+                args.output, splitext(basename(content_path))[0], args.save_ext)
             save_image(output, output_name)
+
+        else:  # process one content and one style
+            for style_path in style_paths:
+                content = content_tf(Image.open(content_path))
+                style = style_tf(Image.open(style_path))
+                if args.preserve_color:
+                    style = coral(style, content)
+                style = style.to(device).unsqueeze(0)
+                content = content.to(device).unsqueeze(0)
+
+                begin_time2 = time.time()
+
+                with torch.no_grad():
+                    output = style_transfer(vgg, decoder, content, style,
+                                            args.alpha)
+                end_time2 = time.time()
+                benchmarks.append(end_time2 - begin_time2)
+
+                output = output.cpu()
+
+                output_name = '{:s}/{:s}_stylized_{:s}{:s}'.format(
+                    args.output, splitext(basename(content_path))[0],
+                    splitext(basename(style_path))[0], args.save_ext
+                )
+                save_image(output, output_name)
 
 end_time = time.time();
 
