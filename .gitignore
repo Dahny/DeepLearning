@@ -1,5 +1,6 @@
 # Ignore video files etc.
 Benchmark/video/*
+Benchmark/training/*
 
 # Don't put secrets in version control lolz
 terraform/account.json
