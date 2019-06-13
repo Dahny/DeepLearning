@@ -146,7 +146,7 @@ style_tf = test_transform(512, False)
 
 cap = cv2.VideoCapture(0)
 
-style = style_tf(Image.open("input/framesStyle/sketch.png"))
+style = style_tf(Image.open("input/style/sketch.png"))
 style = style.to(device).unsqueeze(0)
 
 print("init complete, LEGGO!")
@@ -155,27 +155,19 @@ while(True):
     # Capture frame-by-frame
     ret, frame = cap.read()
 
-    # PFFF
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     frame = Image.fromarray(frame)
     frame = content_tf(frame)
     frame = frame.to(device).unsqueeze(0)
 
     # Our operations on the frame come here
-    # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     with torch.no_grad():
         output = style_transfer(vgg, decoder, frame, style, 1.0)
 
     output = output.cpu()
-    #output = cv2.imread(output)
-    #output = cv2.cvtColor(output, cv2.COLOR_BGR2RGB)
 
-    grid = make_grid(output, nrow=8, padding=2, pad_value=0,
-                     normalize=False, range=None, scale_each=False)
-    ndarr = grid.mul(255).clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy()
-    im = Image.fromarray(ndarr)
-
-    im = cv2.UMat(im)
+    imdata = np.clip(np.swapaxes(np.swapaxes(output.data.numpy()[0], 0, 2), 0, 1), 0, 1)
+    imdata = cv2.cvtColor(imdata, cv2.COLOR_BGR2RGB)
+    im = cv2.UMat(imdata)
 
     # Display the resulting frame
     cv2.imshow('frame', im)

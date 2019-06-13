@@ -7,6 +7,7 @@ from os.path import basename
 from os.path import splitext
 from torchvision import transforms
 from torchvision.utils import save_image
+import numpy as np
 import time
 
 import net
@@ -70,7 +71,7 @@ parser.add_argument('--crop', action='store_true',
                     help='do center crop to create squared image')
 parser.add_argument('--save_ext', default='.jpg',
                     help='The extension name of the output image')
-parser.add_argument('--output', type=str, default='output',
+parser.add_argument('--output', type=str, default='outputNe',
                     help='Directory to save the output image(s)')
 
 # Advanced options
@@ -135,13 +136,22 @@ style_tf = test_transform(args.style_size, args.crop)
 
 begin_time2 = 0
 end_time2 = 0
-benchmarks = []
 
-for content_path in content_paths:
+# For some reason the first style transfer takes up a whole extra second
+# which ruines the data so we do the first run twice :)
+first_time = True
+
+# 5 styles and 300 content images
+benchmarks = np.ndarray([5, 300])
+
+for (idxContent, content_path) in enumerate(content_paths):
     if do_interpolation:  # one content image, N style image
         style = torch.stack([style_tf(Image.open(p)) for p in style_paths])
         content = content_tf(Image.open(content_path)) \
             .unsqueeze(0).expand_as(style)
+
+        #content = content_tf(Image.open(content)) \
+        #    .unsqueeze(0).expand_as(style)
         style = style.to(device)
         content = content.to(device)
 
@@ -152,7 +162,9 @@ for content_path in content_paths:
                                     args.alpha, interpolation_weights)
 
         end_time2 = time.time()
-        benchmarks.append(end_time2 - begin_time2)
+
+        # Set timing benchmark
+        benchmarks[idxStyle, idxContent] = end_time2 - begin_time2
 
         output = output.cpu()
         output_name = '{:s}/{:s}_interpolation{:s}'.format(
@@ -160,7 +172,7 @@ for content_path in content_paths:
         save_image(output, output_name)
 
     else:  # process one content and one style
-        for style_path in style_paths:
+        for (idxStyle, style_path) in enumerate(style_paths):
             content = content_tf(Image.open(content_path))
             style = style_tf(Image.open(style_path))
             if args.preserve_color:
@@ -168,13 +180,31 @@ for content_path in content_paths:
             style = style.to(device).unsqueeze(0)
             content = content.to(device).unsqueeze(0)
 
+            #Begin time
             begin_time2 = time.time()
 
             with torch.no_grad():
                 output = style_transfer(vgg, decoder, content, style,
                                         args.alpha)
+            # End time
             end_time2 = time.time()
-            benchmarks.append(end_time2 - begin_time2)
+
+            # Do the first run twice to fix first run extra second bug
+            # SORRY FOR THE VERY UGLY WAY TO DO THIS :(
+            if first_time & idxContent == 0 & idxStyle == 0:
+                # Begin time
+                begin_time2 = time.time()
+
+                with torch.no_grad():
+                    output = style_transfer(vgg, decoder, content, style,
+                                            args.alpha)
+                # End time
+                end_time2 = time.time()
+
+                first_time = False
+
+            # Set timing benchmark
+            benchmarks[idxStyle, idxContent] = end_time2 - begin_time2
 
             output = output.cpu()
 
@@ -187,10 +217,43 @@ for content_path in content_paths:
 end_time = time.time();
 
 print("The total amount of time for test is", end_time - begin_time, "with the setup:", device.type)
-#print("The total amount of the style transfer is", end_time2 - begin_time2)
-total = 0
-for idx, item in enumerate(benchmarks):
-    print("The time for the", idx, "item took:", item, "seconds")
-    total += item
 
-print("The average time took:", total / len(benchmarks), "seconds TJOM CJATSHJOEK")
+means = []
+stds = []
+
+total = 0
+f = open("benchmark.txt", "a")
+# for each Style
+for idx1, style in enumerate(benchmarks):
+    print("Style", idx1)
+    f.write("Style " + str(idx1) + "\n")
+
+    # For each content image of this style
+    for idx2, item in enumerate(style):
+        print("The time for item", idx2, "took:", item, "seconds")
+        f.writelines("frame " + str(idx2) + " took " + str(item) + " seconds\n")
+
+    # Compute avg and std for the style
+    styleSTD = np.std(style)
+    print("The Standard Deviation for style", idx1, "is",styleSTD)
+    stds.append(styleSTD)
+
+    styleAVG = np.mean(style)
+    print("The Average for style", idx1, "is",styleAVG)
+    means.append(styleAVG)
+
+
+# Write the style avgs and stds
+for i in range(5):
+    f.write("Style " + str(i) + " avg: " + str(means[i]) + "\n")
+    f.write("Style " + str(i) + " std: " + str(stds[i]) + "\n")
+
+totalAVG = np.mean(benchmarks)
+totalSTD = np.std(benchmarks)
+print("The total average time took:", totalAVG, "seconds TJOM CJATSHJOEK\n")
+f.write("total_avg:" + str(totalAVG) + "\n")
+
+print("The total standard deviation:", totalSTD)
+f.write("std:" + str(totalSTD) + "\n")
+
+f.close()
