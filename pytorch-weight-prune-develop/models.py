@@ -121,9 +121,3 @@ class AlexNet(nn.Module):
         self.linear7.set_mask(masks[6])
         self.linear8.set_mask(masks[7])
 
-
-class AdainNet(nn.Module):
-    def __init__(self):
-        super(AdainNet, self).__init__()
-
-        
