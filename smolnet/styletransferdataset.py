@@ -6,6 +6,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import re
+from PIL import Image
 
 class StyleTransferDataset(Dataset):
     def __init__(self, dir, transform=None):
@@ -47,11 +48,19 @@ class ToTensor(object):
     def __call__(self, sample):
         input, target = sample['input'], sample['target']
 
+        # Rescale the input image to match the output
+        in_tmp = Image.fromarray(input)
+        input = np.array(in_tmp.resize((target.shape[1], target.shape[0])))
+
+        #print(input.shape)
+        #print(target.shape)
+
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C X H X W
         input = input.transpose((2, 0, 1))
         target = target.transpose((2, 0, 1))
+
 
         # Convert to float
         input = input.astype(np.float32) / 255

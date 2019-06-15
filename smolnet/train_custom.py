@@ -1,145 +1,107 @@
 import sys
 import os
-from optparse import OptionParser
-import numpy as np
-
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 from torch import optim
+from unet_model import UNet
+from styletransferdataset import StyleTransferDataset, ToTensor
+from torchvision import transforms, utils
+from torch.utils.data import Dataset, DataLoader, Subset
+import matplotlib.pyplot as plt
+import numpy as np
 
-from eval import eval_net
-from unet import UNet
-from utils import get_ids, split_ids, split_train_val, get_imgs_and_masks, batch
+def show_img(img):
+    plt.imshow(np.transpose(img.detach().cpu().numpy()[0], (1, 2, 0)))
+    plt.show()
 
-def train(net):
-    
+def train_net(
+        net,
+        dataset,
+        device,
+        epochs=5,
+        batch_size=1,
+        lr=0.000001):
 
-def train_net(net,
-              epochs=5,
-              batch_size=1,
-              lr=0.1,
-              val_percent=0.05,
-              save_cp=True,
-              gpu=False,
-              img_scale=0.5):
-
-    dir_img = 'dataset/training/input'
-    dir_mask = 'data/training/output'
-    dir_checkpoint = 'checkpoints/'
-
-    ids = get_ids(dir_img)
-    ids = split_ids(ids)
-
-    iddataset = split_train_val(ids, val_percent)
-
-    print('''
-    Starting training:
-        Epochs: {}
-        Batch size: {}
-        Learning rate: {}
-        Training size: {}
-        Validation size: {}
-        Checkpoints: {}
-        CUDA: {}
-    '''.format(epochs, batch_size, lr, len(iddataset['train']),
-               len(iddataset['val']), str(save_cp), str(gpu)))
-
-    N_train = len(iddataset['train'])
-
-    optimizer = optim.SGD(net.parameters(),
-                          lr=lr,
-                          momentum=0.9,
-                          weight_decay=0.0005)
-
-    criterion = nn.BCELoss()
+    criterion = nn.MSELoss(reduction='sum')
+    optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9)
 
     for epoch in range(epochs):
-        print('Starting epoch {}/{}.'.format(epoch + 1, epochs))
-        net.train()
 
-        # reset the generators
-        train = get_imgs_and_masks(iddataset['train'], dir_img, dir_mask, img_scale)
-        val = get_imgs_and_masks(iddataset['val'], dir_img, dir_mask, img_scale)
+        running_loss = 0.0
+        print('epoch', epoch)
 
-        epoch_loss = 0
+        for i, data in enumerate(dataset):
 
-        for i, b in enumerate(batch(train, batch_size)):
-            imgs = np.array([i[0] for i in b]).astype(np.float32)
-            true_masks = np.array([i[1] for i in b])
+            #print('data', data)
 
-            imgs = torch.from_numpy(imgs)
-            true_masks = torch.from_numpy(true_masks)
+            input = data['input']
+            target = data['target']
 
-            if gpu:
-                imgs = imgs.cuda()
-                true_masks = true_masks.cuda()
+            try:
+                input = input.to(device)
+                target = target.to(device)
 
-            masks_pred = net(imgs)
-            masks_probs_flat = masks_pred.view(-1)
+                optimizer.zero_grad()
 
-            true_masks_flat = true_masks.view(-1)
+                output = net(input)
+                loss = criterion(output, target)
+                loss.backward()
+                optimizer.step()
 
-            loss = criterion(masks_probs_flat, true_masks_flat)
-            epoch_loss += loss.item()
-
-            print('{0:.4f} --- loss: {1:.6f}'.format(i * batch_size / N_train, loss.item()))
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-        print('Epoch finished ! Loss: {}'.format(epoch_loss / i))
-
-        if 1:
-            val_dice = eval_net(net, val, gpu)
-            print('Validation Dice Coeff: {}'.format(val_dice))
-
-        if save_cp:
-            torch.save(net.state_dict(),
-                       dir_checkpoint + 'CP{}.pth'.format(epoch + 1))
-            print('Checkpoint {} saved !'.format(epoch + 1))
+            except RuntimeError:
+                print(input.shape)
+                print('current memory allocated: {}'.format(torch.cuda.memory_allocated() / 1024 ** 2))
+                print('max memory allocated: {}'.format(torch.cuda.max_memory_allocated() / 1024 ** 2))
+                print('cached memory: {}'.format(torch.cuda.memory_cached() / 1024 ** 2))
+                print("Skipping input because OUT OF MEMORY")
+                torch.cuda.empty_cache()
+                continue
 
 
 
-def get_args():
-    parser = OptionParser()
-    parser.add_option('-e', '--epochs', dest='epochs', default=5, type='int',
-                      help='number of epochs')
-    parser.add_option('-b', '--batch-size', dest='batchsize', default=10,
-                      type='int', help='batch size')
-    parser.add_option('-l', '--learning-rate', dest='lr', default=0.1,
-                      type='float', help='learning rate')
-    parser.add_option('-g', '--gpu', action='store_true', dest='gpu',
-                      default=False, help='use cuda')
-    parser.add_option('-c', '--load', dest='load',
-                      default=False, help='load file model')
-    parser.add_option('-s', '--scale', dest='scale', type='float',
-                      default=0.5, help='downscaling factor of the images')
+            # print statistics
+            running_loss += loss.item()
+            if i % 20 == 19:  # print every 2000 mini-batches
 
-    (options, args) = parser.parse_args()
-    return options
+                print('[%d, %5d] loss: %.3f' %
+                      (epoch + 1, i + 1, running_loss / 20))
+                running_loss = 0.0
+                show_img(output)
+
+            # show result
+            #show_img(input)
+            #show_img(target)
+
+
+
 
 if __name__ == '__main__':
-    args = get_args()
+    net = UNet(n_input_channels=3, n_output_channels=3)
 
-    net = UNet(n_channels=3, n_classes=1)
+    # dataset = Subset(
+    #     StyleTransferDataset('dataset/training', transform=ToTensor()),
+    #     range(30)
+    # )
 
-    if args.load:
-        net.load_state_dict(torch.load(args.load))
-        print('Model loaded from {}'.format(args.load))
+    dataset = StyleTransferDataset('dataset/training', transform=ToTensor())
+    dataloader = DataLoader(dataset, batch_size=1,
+                                 shuffle=True, num_workers=4)
 
-    if args.gpu:
-        net.cuda()
-        # cudnn.benchmark = True # faster convolutions, but more memory
+
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(device)
+
+    net.to(device)
 
     try:
-        train_net(net=net,
-                  epochs=args.epochs,
-                  batch_size=args.batchsize,
-                  lr=args.lr,
-                  gpu=args.gpu,
-                  img_scale=args.scale)
+        train_net(
+            net=net,
+            dataset=dataloader,
+            device=device,
+            epochs=1000
+        )
     except KeyboardInterrupt:
         torch.save(net.state_dict(), 'INTERRUPTED.pth')
         print('Saved interrupt')
