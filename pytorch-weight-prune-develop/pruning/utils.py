@@ -1,8 +1,32 @@
 import numpy as np
 import torch
+import os
+from PIL import Image
 from torch.autograd import Variable
 import torch.nn as nn
 from torch.utils.data import sampler
+from torchvision import transforms
+from adain.function import *
+import torch.utils.data as data
+
+class FlatFolderDataset(data.Dataset):
+    def __init__(self, root, transform):
+        super(FlatFolderDataset, self).__init__()
+        self.root = root
+        self.paths = os.listdir(self.root)
+        self.transform = transform
+
+    def __getitem__(self, index):
+        path = self.paths[index]
+        img = Image.open(os.path.join(self.root, path)).convert('RGB')
+        img = self.transform(img)
+        return img
+
+    def __len__(self):
+        return len(self.paths)
+
+    def name(self):
+        return 'FlatFolderDataset'
 
 
 def to_var(x, requires_grad=False, volatile=False):
@@ -12,7 +36,13 @@ def to_var(x, requires_grad=False, volatile=False):
     if torch.cuda.is_available():
         x = x.cuda()
     return Variable(x, requires_grad=requires_grad, volatile=volatile)
-
+def train_transform():
+    transform_list = [
+        transforms.Resize(size=(512, 512)),
+        transforms.RandomCrop(256),
+        transforms.ToTensor()
+    ]
+    return transforms.Compose(transform_list)
     
 def train(model, loss_fn, optimizer, param, loader_train, loader_val=None):
 
@@ -33,6 +63,42 @@ def train(model, loss_fn, optimizer, param, loader_train, loader_val=None):
             loss.backward()
             optimizer.step()
          
+
+def train_adain(model, loss_fn, optimizer, param, loader_train,args, loader_val=None):
+    device = torch.device('cuda')
+    model.train()
+    model.to(device)
+
+    content_tf = train_transform()
+    style_tf = train_transform()
+
+    content_dataset = FlatFolderDataset(args.content_dir, content_tf)
+    style_dataset = FlatFolderDataset(args.style_dir, style_tf)
+
+    content_iter = iter(data.DataLoader(
+        content_dataset, batch_size=args.batch_size,
+        sampler=InfiniteSamplerWrapper(content_dataset),
+        num_workers=args.n_threads))
+    style_iter = iter(data.DataLoader(
+        style_dataset, batch_size=args.batch_size,
+        sampler=InfiniteSamplerWrapper(style_dataset),
+        num_workers=args.n_threads))
+
+    for epoch in range(param['num_epochs']):
+        print('Starting epoch %d / %d' % (epoch + 1, param['num_epochs']))
+        adjust_learning_rate(optimizer,epoch,args.lr, args.lr_decay )
+        content_images = next(content_iter).to(device)
+        style_images = next(style_iter).to(device)
+        loss_c, loss_s = model(content_images, style_images)
+
+        loss_c = args.content_weight * loss_c
+        loss_s = args.style_weight * loss_s
+        loss = loss_c + loss_s
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
 
 def test(model, loader):
 
