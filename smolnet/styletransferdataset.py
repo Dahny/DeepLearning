@@ -53,6 +53,10 @@ class ToTensor(object):
         input = input.transpose((2, 0, 1))
         target = target.transpose((2, 0, 1))
 
+        # Convert to float
+        input = input.astype(np.float32) / 255
+        target = target.astype(np.float32) / 255
+
         #print('input', input.shape)
         #print('target', target.shape)
 
