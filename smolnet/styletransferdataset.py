@@ -26,7 +26,10 @@ class StyleTransferDataset(Dataset):
 
     def __getitem__(self, idx):
         input_path = str(self.inputimages[idx])
-        target_path = f"{re.search('(.*).jpg', input_path).group(1)}{self.outputpostfix}".replace('/input/', '/output/')
+
+        target_path_parts = list(Path(f"{re.search('(.*).jpg', input_path).group(1)}{self.outputpostfix}").parts)
+        target_path_parts[target_path_parts.index('input')] = 'output'
+        target_path = Path(*target_path_parts)
 
         input_image = io.imread(input_path)
         target_image = io.imread(target_path)
@@ -64,9 +67,9 @@ if __name__ == "__main__":
 
     dataset = StyleTransferDataset('dataset/training', transform=ToTensor())
 
-    dataloader = iter(DataLoader(dataset, batch_size=1,
-                                          shuffle=True, num_workers=4))
-    tmp = next(dataloader)
+    dataloader = DataLoader(dataset, batch_size=1,
+                                          shuffle=True, num_workers=4)
+    tmp = next(iter(dataloader))
     input = tmp['input']
     target = tmp['target']
 
