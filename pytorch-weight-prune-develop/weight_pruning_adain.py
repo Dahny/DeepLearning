@@ -7,9 +7,10 @@ import torch.nn as nn
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import adainNet
+from adain.options import Options
 
 from pruning.methods import weight_prune
-from pruning.utils import to_var, train, prune_rate, test_adain
+from pruning.utils import to_var, train_adain, prune_rate, test_adain
 
 
 # Hyper Parameters
@@ -47,7 +48,7 @@ if torch.cuda.is_available():
     print('CUDA ensabled.')
     net.cuda()
 print("--- Pretrained network loaded ---")
-test_adain(vgg, decoder, "pretrained_benchmark.txt")
+test_adain(vgg, decoder, "pretrained_benchmark.txt", "pretrain")
 
 
 # prune the weights
@@ -57,20 +58,19 @@ net.set_enc_masks(vgg_masks)
 net.set_dec_masks(decoder_masks)
 net = nn.DataParallel(net).cuda()
 print("--- {}% parameters pruned ---".format(param['pruning_perc']))
-# test_adain(vgg, decoder, "pruned_benchmark.txt")
+# test_adain(vgg, decoder, "pruned_benchmark.txt", "pruned")
 
 
 # Retraining
-# criterion = nn.CrossEntropyLoss()
-# optimizer = torch.optim.RMSprop(net.parameters(), lr=param['learning_rate'],
-#                                 weight_decay=param['weight_decay'])
-#
-# train(net, criterion, optimizer, param, loader_train)
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.RMSprop(net.parameters(), lr=param['learning_rate'],
+                                weight_decay=param['weight_decay'])
+train_adain(net, param, Options().test_arg(), optimizer)
 
 
 # Check accuracy and nonzeros weights in each layer
 print("--- After retraining ---")
-# test(net, loader_test)
+# test_adain(vgg, decoder, "retrain_benchmark.txt", "retrain")
 prune_rate(net)
 
 

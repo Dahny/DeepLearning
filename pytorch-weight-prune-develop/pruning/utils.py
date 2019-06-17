@@ -71,7 +71,7 @@ def train(model, loss_fn, optimizer, param, loader_train, loader_val=None):
             optimizer.step()
          
 
-def train_adain(model, loss_fn, optimizer, param, loader_train,args, loader_val=None):
+def train_adain(model, param, args, optimizer):
     device = torch.device('cuda')
     model.train()
     model.to(device)
@@ -107,7 +107,7 @@ def train_adain(model, loss_fn, optimizer, param, loader_train,args, loader_val=
         optimizer.step()
 
 
-def test_adain(vgg, decoder, filename):
+def test_adain(vgg, decoder, filename, foldername):
 
     print('--- Start testing ---')
     begin_time = time.time()
@@ -156,7 +156,7 @@ def test_adain(vgg, decoder, filename):
 
             output = output.cpu()
             output_name = '{:s}/{:s}_interpolation{:s}'.format(
-                args.output, splitext(basename(content_path))[0], args.save_ext)
+                foldername, splitext(basename(content_path))[0], args.save_ext)
             save_image(output, output_name)
 
         else:  # process one content and one style
