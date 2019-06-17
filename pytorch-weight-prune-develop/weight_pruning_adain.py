@@ -58,14 +58,14 @@ net.set_enc_masks(vgg_masks)
 net.set_dec_masks(decoder_masks)
 net = nn.DataParallel(net).cuda()
 print("--- {}% parameters pruned ---".format(param['pruning_perc']))
-# test_adain(vgg, decoder, "pruned_benchmark.txt", "pruned")
+test_adain(vgg, decoder, "pruned_benchmark.txt", "pruned")
 
 
 # Retraining
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.RMSprop(net.parameters(), lr=param['learning_rate'],
-                                weight_decay=param['weight_decay'])
-train_adain(net, param, Options().test_arg(), optimizer)
+#criterion = nn.CrossEntropyLoss()
+#optimizer = torch.optim.RMSprop(net.decoder.parameters(), lr=param['learning_rate'],
+#weight_decay=param['weight_decay'])
+#train_adain(net, param, Options().test_arg(), optimizer)
 
 
 # Check accuracy and nonzeros weights in each layer

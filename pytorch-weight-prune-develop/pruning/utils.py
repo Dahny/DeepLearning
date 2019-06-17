@@ -156,7 +156,7 @@ def test_adain(vgg, decoder, filename, foldername):
 
             output = output.cpu()
             output_name = '{:s}/{:s}_interpolation{:s}'.format(
-                foldername, splitext(basename(content_path))[0], args.save_ext)
+                args.output, splitext(basename(content_path))[0], args.save_ext)
             save_image(output, output_name)
 
         else:  # process one content and one style
@@ -197,7 +197,7 @@ def test_adain(vgg, decoder, filename, foldername):
                 output = output.cpu()
 
                 output_name = '{:s}/{:s}_stylized_{:s}{:s}'.format(
-                    args.output, splitext(basename(content_path))[0],
+                    foldername, splitext(basename(content_path))[0],
                     splitext(basename(style_path))[0], args.save_ext
                 )
                 save_image(output, output_name)
