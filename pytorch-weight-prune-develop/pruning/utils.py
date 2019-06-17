@@ -1,13 +1,17 @@
 import numpy as np
 import torch
-import os
+from os.path import basename
+from os.path import splitext
 from PIL import Image
 from torch.autograd import Variable
 import torch.nn as nn
 from torch.utils.data import sampler
-from torchvision import transforms
 from adain.function import *
 import torch.utils.data as data
+import time
+from adain.options import Options
+from adain.test_function import *
+from torchvision.utils import save_image
 
 class FlatFolderDataset(data.Dataset):
     def __init__(self, root, transform):
@@ -36,6 +40,8 @@ def to_var(x, requires_grad=False, volatile=False):
     if torch.cuda.is_available():
         x = x.cuda()
     return Variable(x, requires_grad=requires_grad, volatile=volatile)
+
+
 def train_transform():
     transform_list = [
         transforms.Resize(size=(512, 512)),
@@ -43,7 +49,8 @@ def train_transform():
         transforms.ToTensor()
     ]
     return transforms.Compose(transform_list)
-    
+
+
 def train(model, loss_fn, optimizer, param, loader_train, loader_val=None):
 
     model.train()
@@ -98,6 +105,149 @@ def train_adain(model, loss_fn, optimizer, param, loader_train,args, loader_val=
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+
+def test_adain(vgg, decoder):
+
+    begin_time = time.time()
+
+    # read parameters
+    args = Options().test_arg()
+    do_interpolation, device, content_paths, style_paths, interpolation_weights = configuration(args)
+
+    # set models in evaluation mode
+    decoder.eval()
+    vgg.eval()
+    vgg.to(device)
+    decoder.to(device)
+
+    content_tf = test_transform(args.content_size, args.crop)
+    style_tf = test_transform(args.style_size, args.crop)
+
+    # For some reason the first style transfer takes up a whole extra second
+    # which ruines the data so we do the first run twice :)
+    first_time = True
+
+    # 5 styles and 300 content images
+    benchmarks = np.ndarray([5, 300])
+
+    for (idxContent, content_path) in enumerate(content_paths):
+        if do_interpolation:  # one content image, N style image
+            style = torch.stack([style_tf(Image.open(p)) for p in style_paths])
+            content = content_tf(Image.open(content_path)) \
+                .unsqueeze(0).expand_as(style)
+
+            # content = content_tf(Image.open(content)) \
+            #    .unsqueeze(0).expand_as(style)
+            style = style.to(device)
+            content = content.to(device)
+
+            begin_time2 = time.time()
+
+            with torch.no_grad():
+                output = style_transfer(vgg, decoder, content, style,
+                                        args.alpha, interpolation_weights)
+
+            end_time2 = time.time()
+
+            # Set timing benchmark
+            benchmarks[idxStyle, idxContent] = end_time2 - begin_time2
+
+            output = output.cpu()
+            output_name = '{:s}/{:s}_interpolation{:s}'.format(
+                args.output, splitext(basename(content_path))[0], args.save_ext)
+            save_image(output, output_name)
+
+        else:  # process one content and one style
+            for (idxStyle, style_path) in enumerate(style_paths):
+                content = content_tf(Image.open(content_path))
+                style = style_tf(Image.open(style_path))
+                if args.preserve_color:
+                    style = coral(style, content)
+                style = style.to(device).unsqueeze(0)
+                content = content.to(device).unsqueeze(0)
+
+                # Begin time
+                begin_time2 = time.time()
+
+                with torch.no_grad():
+                    output = style_transfer(vgg, decoder, content, style,
+                                            args.alpha)
+                # End time
+                end_time2 = time.time()
+
+                # Do the first run twice to fix first run extra second bug
+                # SORRY FOR THE VERY UGLY WAY TO DO THIS :(
+                if first_time & idxContent == 0 & idxStyle == 0:
+                    # Begin time
+                    begin_time2 = time.time()
+
+                    with torch.no_grad():
+                        output = style_transfer(vgg, decoder, content, style,
+                                                args.alpha)
+                    # End time
+                    end_time2 = time.time()
+
+                    first_time = False
+
+                # Set timing benchmark
+                benchmarks[idxStyle, idxContent] = end_time2 - begin_time2
+
+                output = output.cpu()
+
+                output_name = '{:s}/{:s}_stylized_{:s}{:s}'.format(
+                    args.output, splitext(basename(content_path))[0],
+                    splitext(basename(style_path))[0], args.save_ext
+                )
+                save_image(output, output_name)
+
+    end_time = time.time();
+    print("The total amount of time for test is", end_time - begin_time, "with the setup:", device.type)
+
+    if do_interpolation:  # one content image, N style image
+        write_benchmark(benchmarks)
+
+
+def write_benchmark(benchmarks):
+    means = []
+    stds = []
+
+    f = open("benchmark.txt", "a")
+    # for each Style
+    for idx1, style in enumerate(benchmarks):
+        print("Style", idx1)
+        f.write("Style " + str(idx1) + "\n")
+
+        # For each content image of this style
+        for idx2, item in enumerate(style):
+            print("The time for item", idx2, "took:", item, "seconds")
+            f.writelines("frame " + str(idx2) + " took " + str(item) + " seconds\n")
+
+        # Compute avg and std for the style
+        styleSTD = np.std(style)
+        print("The Standard Deviation for style", idx1, "is", styleSTD)
+        stds.append(styleSTD)
+
+        styleAVG = np.mean(style)
+        print("The Average for style", idx1, "is", styleAVG)
+        means.append(styleAVG)
+
+    # Write the style avgs and stds
+    for i in range(5):
+        f.write("Style " + str(i) + " avg: " + str(means[i]) + "\n")
+        f.write("Style " + str(i) + " std: " + str(stds[i]) + "\n")
+
+    totalAVG = np.mean(benchmarks)
+    totalSTD = np.std(benchmarks)
+    print("The total average time took:", totalAVG, "seconds\n")
+    f.write("total_avg:" + str(totalAVG) + "\n")
+
+    print("The total standard deviation:", totalSTD)
+    f.write("std:" + str(totalSTD) + "\n")
+
+    f.close()
+
+    return totalAVG, totalSTD
 
 
 def test(model, loader):

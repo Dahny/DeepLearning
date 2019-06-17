@@ -9,8 +9,7 @@ import torchvision.transforms as transforms
 import adainNet
 
 from pruning.methods import weight_prune
-from pruning.utils import to_var, train, test, prune_rate
-from models import MLP
+from pruning.utils import to_var, train, prune_rate, test_adain
 
 
 # Hyper Parameters
@@ -48,7 +47,8 @@ if torch.cuda.is_available():
     print('CUDA ensabled.')
     net.cuda()
 print("--- Pretrained network loaded ---")
-# test(net, loader_test)
+test_adain(vgg, decoder)
+
 
 # prune the weights
 vgg_masks = weight_prune(vgg, param['pruning_perc'])
@@ -57,7 +57,7 @@ net.set_enc_masks(vgg_masks)
 net.set_dec_masks(decoder_masks)
 net = nn.DataParallel(net).cuda()
 print("--- {}% parameters pruned ---".format(param['pruning_perc']))
-# test(net, loader_test)
+# test_adain(net, loader_test)
 
 
 # Retraining
