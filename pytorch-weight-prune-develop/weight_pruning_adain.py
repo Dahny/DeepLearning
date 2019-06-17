@@ -15,7 +15,7 @@ from models import MLP
 
 # Hyper Parameters
 param = {
-    'pruning_perc': 90.,
+    'pruning_perc': 60.,
     'batch_size': 128,
     'test_batch_size': 100,
     'num_epochs': 5,
@@ -40,8 +40,8 @@ param = {
 
 vgg = adainNet.vgg
 decoder = adainNet.decoder
-vgg.load_state_dict("../pytorch-AdaIN-master/models/vgg_normalised.pth")
-decoder.load_state_dict("../pytorch-AdaIN-master/models/decoder.pth")
+vgg.load_state_dict(torch.load("../pytorch-AdaIN-master/models/vgg_normalised.pth"))
+decoder.load_state_dict(torch.load("../pytorch-AdaIN-master/models/decoder.pth"))
 net = adainNet.AdainNet(vgg, decoder)
 
 if torch.cuda.is_available():
@@ -51,8 +51,10 @@ print("--- Pretrained network loaded ---")
 # test(net, loader_test)
 
 # prune the weights
-masks = weight_prune(net, param['pruning_perc'])
-net.set_masks(masks)
+vgg_masks = weight_prune(vgg, param['pruning_perc'])
+decoder_masks = weight_prune(decoder, param['pruning_perc'])
+net.set_enc_masks(vgg_masks)
+net.set_dec_masks(decoder_masks)
 net = nn.DataParallel(net).cuda()
 print("--- {}% parameters pruned ---".format(param['pruning_perc']))
 # test(net, loader_test)
@@ -73,5 +75,5 @@ prune_rate(net)
 
 
 # Save and load the entire model
-torch.save(vgg.state_dict(), 'model/vgg_pruned.pkl')
-torch.save(decoder.state_dict(), 'model/decoder_pruned.pkl')
+torch.save(vgg.state_dict(), 'models/vgg_pruned.pkl')
+torch.save(decoder.state_dict(), 'models/decoder_pruned.pkl')
