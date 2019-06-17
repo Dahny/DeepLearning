@@ -107,7 +107,7 @@ def train_adain(model, loss_fn, optimizer, param, loader_train,args, loader_val=
         optimizer.step()
 
 
-def test_adain(vgg, decoder):
+def test_adain(vgg, decoder, filename):
 
     print('--- Start testing ---')
     begin_time = time.time()
@@ -206,33 +206,33 @@ def test_adain(vgg, decoder):
     print("The total amount of time for test is", end_time - begin_time, "with the setup:", device.type)
 
     if not do_interpolation:  # one content image, N style image
-        write_benchmark(benchmarks)
+        write_benchmark(benchmarks, filename)
 
-    print ('Finish testing')
+    print ('--- Finish testing ---')
 
 
-def write_benchmark(benchmarks):
+def write_benchmark(benchmarks, filename):
     means = []
     stds = []
 
-    f = open("benchmark.txt", "a")
+    f = open(filename, "a")
     # for each Style
     for idx1, style in enumerate(benchmarks):
-        print("Style", idx1)
+        # print("Style", idx1)
         f.write("Style " + str(idx1) + "\n")
 
         # For each content image of this style
         for idx2, item in enumerate(style):
-            print("The time for item", idx2, "took:", item, "seconds")
+            # print("The time for item", idx2, "took:", item, "seconds")
             f.writelines("frame " + str(idx2) + " took " + str(item) + " seconds\n")
 
         # Compute avg and std for the style
         styleSTD = np.std(style)
-        print("The Standard Deviation for style", idx1, "is", styleSTD)
+        # print("The Standard Deviation for style", idx1, "is", styleSTD)
         stds.append(styleSTD)
 
         styleAVG = np.mean(style)
-        print("The Average for style", idx1, "is", styleAVG)
+        # print("The Average for style", idx1, "is", styleAVG)
         means.append(styleAVG)
 
     # Write the style avgs and stds

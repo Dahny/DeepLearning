@@ -47,7 +47,7 @@ if torch.cuda.is_available():
     print('CUDA ensabled.')
     net.cuda()
 print("--- Pretrained network loaded ---")
-test_adain(vgg, decoder)
+test_adain(vgg, decoder, "pretrained_benchmark.txt")
 
 
 # prune the weights
@@ -57,7 +57,7 @@ net.set_enc_masks(vgg_masks)
 net.set_dec_masks(decoder_masks)
 net = nn.DataParallel(net).cuda()
 print("--- {}% parameters pruned ---".format(param['pruning_perc']))
-# test_adain(net, loader_test)
+# test_adain(vgg, decoder, "pruned_benchmark.txt")
 
 
 # Retraining
