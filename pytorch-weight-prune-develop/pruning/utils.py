@@ -109,6 +109,7 @@ def train_adain(model, loss_fn, optimizer, param, loader_train,args, loader_val=
 
 def test_adain(vgg, decoder):
 
+    print('--- Start testing ---')
     begin_time = time.time()
 
     # read parameters
@@ -129,7 +130,7 @@ def test_adain(vgg, decoder):
     first_time = True
 
     # 5 styles and 300 content images
-    benchmarks = np.ndarray([5, 300])
+    benchmarks = np.ndarray([len(style_paths), len(content_paths)])
 
     for (idxContent, content_path) in enumerate(content_paths):
         if do_interpolation:  # one content image, N style image
@@ -204,8 +205,10 @@ def test_adain(vgg, decoder):
     end_time = time.time();
     print("The total amount of time for test is", end_time - begin_time, "with the setup:", device.type)
 
-    if do_interpolation:  # one content image, N style image
+    if not do_interpolation:  # one content image, N style image
         write_benchmark(benchmarks)
+
+    print ('Finish testing')
 
 
 def write_benchmark(benchmarks):

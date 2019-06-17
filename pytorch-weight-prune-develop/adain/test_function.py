@@ -16,7 +16,7 @@ def test_transform(size, crop):
 
 
 def get_style_path(args):
-    do_interpolation, interpolation_weights = None, None
+    do_interpolation, interpolation_weights = False, None
     if args.style:
         style_paths = args.style.split(',')
         if len(style_paths) == 1:

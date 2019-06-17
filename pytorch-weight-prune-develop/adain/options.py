@@ -48,8 +48,8 @@ class Options:
 
     def test_arg(self):
         args = self.parser.parse_args(['--content_dir', '../pytorch-AdaIN-master/input/content',
-                                  '--style_dir', '../pytorch-AdaIN-master/input/frames',
-                                  '--output', 'text',
-                                  '--content-size', '256'
+                                  '--style_dir', '../pytorch-AdaIN-master/input/style',
+                                  '--output', 'output',
+                                  '--content_size', '256'
                                   ])
         return args
