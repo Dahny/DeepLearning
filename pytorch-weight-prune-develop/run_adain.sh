@@ -1,16 +1,19 @@
 #!/bin/bash
-rm -rf pretrain/
-rm -rf pruned/
-rm -f pretrained_benchmark.txt  
-rm -f pruned_benchmark.txt
-rm -f pruned.tar
-rm -f pretrained.tar
+# Prepare dataset
+#wget -O data/val2017.zip http://images.cocodataset.org/zips/val2017.zip
+#unzip data/val2017.zip -d data/MSCOCO
 
-mkdir pretrain
-mkdir pruned
+# Clean files
+rm -rf ./output
+rm -f output.tar
 
+mkdir output
+mkdir output/pretrain
+mkdir output/pruned
+mkdir output/retrain
+
+# Run weight pruning
 python weight_pruning_adain.py
 
-tar -czvf pruned.tar pruned
-tar -czvf pretrain.tar pretrain
+tar -czvf output.tar output
 

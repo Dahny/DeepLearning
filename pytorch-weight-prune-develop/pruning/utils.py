@@ -72,6 +72,7 @@ def train(model, loss_fn, optimizer, param, loader_train, loader_val=None):
          
 
 def train_adain(model, param, args, optimizer):
+    print("--- Start training ---")
     device = torch.device('cuda')
     model.train()
     model.to(device)
@@ -83,17 +84,19 @@ def train_adain(model, param, args, optimizer):
     style_dataset = FlatFolderDataset(args.style_dir, style_tf)
 
     content_iter = iter(data.DataLoader(
-        content_dataset, batch_size=args.batch_size,
+        content_dataset, batch_size=param['batch_size'],
         sampler=InfiniteSamplerWrapper(content_dataset),
         num_workers=args.n_threads))
     style_iter = iter(data.DataLoader(
-        style_dataset, batch_size=args.batch_size,
+        style_dataset, batch_size=param['batch_size'],
         sampler=InfiniteSamplerWrapper(style_dataset),
         num_workers=args.n_threads))
 
     for epoch in range(param['num_epochs']):
+        begin_time = time.time()
+
         print('Starting epoch %d / %d' % (epoch + 1, param['num_epochs']))
-        adjust_learning_rate(optimizer,epoch,args.lr, args.lr_decay )
+        adjust_learning_rate(optimizer,epoch,args.lr, param['weight_decay'] )
         content_images = next(content_iter).to(device)
         style_images = next(style_iter).to(device)
         loss_c, loss_s = model(content_images, style_images)
@@ -105,6 +108,12 @@ def train_adain(model, param, args, optimizer):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+        end_time = time.time()
+        print("Training epoch  %d / %d takes %.3f seconds" %
+              (epoch + 1, param['num_epochs'], end_time-begin_time))
+
+    print("--- End training ---")
 
 
 def test_adain(vgg, decoder, filename, foldername):

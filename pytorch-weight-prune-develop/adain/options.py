@@ -43,12 +43,32 @@ class Options:
             '--style_interpolation_weights', type=str, default='',
             help='The weight for blending the style of multiple style images')
 
+	# training options
+        self.parser.add_argument('--save_dir', default='./experiments',
+                    help='Directory to save the model')
+        self.parser.add_argument('--log_dir', default='./logs',
+                    help='Directory to save the log')
+        self.parser.add_argument('--lr', type=float, default=1e-4)
+        self.parser.add_argument('--lr_decay', type=float, default=5e-5)
+        self.parser.add_argument('--max_iter', type=int, default=160000)
+        self.parser.add_argument('--batch_size', type=int, default=8)
+        self.parser.add_argument('--style_weight', type=float, default=10.0)
+        self.parser.add_argument('--content_weight', type=float, default=1.0)
+        self.parser.add_argument('--n_threads', type=int, default=16)
+        self.parser.add_argument('--save_model_interval', type=int, default=10000)
+
     def parse(self):
         return self.parser.parse_args()
 
     def test_arg(self):
         args = self.parser.parse_args(['--content_dir', '../pytorch-AdaIN-master/input/content',
-                                  '--style_dir', '../pytorch-AdaIN-master/input/style',
-                                  '--output', 'output'
+                                  '--style_dir', '../pytorch-AdaIN-master/input/style'
                                   ])
+        return args
+
+    def train_arg(self):
+        args = self.parser.parse_args(['--content_dir', './data/MSCOCO/val2017',
+                                       '--style_dir', '../pytorch-AdaIN-master/input/style',
+                                       '--save_dir', './models'
+                                       ])
         return args
