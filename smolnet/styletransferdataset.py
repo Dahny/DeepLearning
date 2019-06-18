@@ -42,6 +42,32 @@ class StyleTransferDataset(Dataset):
 
         return sample
 
+class Crop(object):
+    """Crop the input and output image to the same size"""
+
+    def __call__(self, sample):
+        input, target = sample['input'], sample['target']
+
+        # Create temporary PIL images so we can use built in transforms
+        in_tmp = Image.fromarray(input)
+        out_tmp = Image.fromarray(target)
+
+        # Rescale the input image to match the output
+        input = np.array(in_tmp.resize((target.shape[1], target.shape[0])))
+        in_tmp = Image.fromarray(input)
+
+        # Set up cropping
+        crop = transforms.CenterCrop(min(target.shape[1], target.shape[0]))
+
+        # perform crop
+        in_tmp = crop(in_tmp)
+        out_tmp = crop(out_tmp)
+
+        # Output cropped images
+        return {'input': np.array(in_tmp),
+                'target': np.array(out_tmp)}
+
+
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
 

@@ -5,11 +5,13 @@ import torch.backends.cudnn as cudnn
 import torch.nn as nn
 from torch import optim
 from unet_model import UNet
-from styletransferdataset import StyleTransferDataset, ToTensor
+from unet_model_smaller import UNet as SmolNet
+from styletransferdataset import StyleTransferDataset, ToTensor, Crop
 from torchvision import transforms, utils
 from torch.utils.data import Dataset, DataLoader, Subset
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 
 def show_img(img):
     plt.imshow(np.transpose(img.detach().cpu().numpy()[0], (1, 2, 0)))
@@ -21,10 +23,14 @@ def train_net(
         device,
         epochs=5,
         batch_size=1,
-        lr=0.000001):
+        lr=0.0000001):
 
     criterion = nn.MSELoss(reduction='sum')
-    optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9)
+    # optimizer = optimizer = optim.SGD(net.parameters(),
+    #                       lr=lr,
+    #                       momentum=0.9,
+    #                       weight_decay=0.0005)
+    optimizer = optim.Adam(net.parameters(), lr=0.0001)
 
     for epoch in range(epochs):
 
@@ -44,18 +50,25 @@ def train_net(
 
                 optimizer.zero_grad()
 
+                pre = time.time()
                 output = net(input)
+                delta = time.time() - pre
+                #cprint('Forward pass: ', delta)
+
                 loss = criterion(output, target)
                 loss.backward()
                 optimizer.step()
 
             except RuntimeError:
+                print(i)
                 print(input.shape)
+                del(input) # Delete problematic input variable so memory can be freed
                 print('current memory allocated: {}'.format(torch.cuda.memory_allocated() / 1024 ** 2))
                 print('max memory allocated: {}'.format(torch.cuda.max_memory_allocated() / 1024 ** 2))
                 print('cached memory: {}'.format(torch.cuda.memory_cached() / 1024 ** 2))
                 print("Skipping input because OUT OF MEMORY")
                 torch.cuda.empty_cache()
+                time.sleep(1)
                 continue
 
 
@@ -78,13 +91,17 @@ def train_net(
 
 if __name__ == '__main__':
     net = UNet(n_input_channels=3, n_output_channels=3)
-
+    #net = SmolNet(n_input_channels=3, n_output_channels=3)
     # dataset = Subset(
     #     StyleTransferDataset('dataset/training', transform=ToTensor()),
-    #     range(30)
+    #     range(1)
     # )
 
-    dataset = StyleTransferDataset('dataset/training', transform=ToTensor())
+    dataset = StyleTransferDataset('dataset/training',
+                                   transform=transforms.Compose([
+                                       Crop(),
+                                       ToTensor()
+                                   ]))
     dataloader = DataLoader(dataset, batch_size=1,
                                  shuffle=True, num_workers=4)
 
