@@ -18,7 +18,7 @@ param = {
     'pruning_perc': 35.,
     'batch_size': 10,
     'test_batch_size': 100,
-    'num_epochs': 5,
+    'num_epochs': 2,
     'learning_rate': 0.001,
     'weight_decay': 5e-4,
 }
@@ -35,6 +35,9 @@ param = {
 # loader_test = torch.utils.data.DataLoader(test_dataset,
 #     batch_size=param['test_batch_size'], shuffle=True)
 
+# These two lines fix truncated image errors
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # Load the pretrained model
 
@@ -49,17 +52,18 @@ if torch.cuda.is_available():
     print('CUDA ensabled.')
     net.cuda()
 print("--- Pretrained network loaded ---")
-test_adain(vgg, decoder, "output/pretrain_benchmark.txt", "output/pretrain")
+test_args = Options().test_arg()
+test_adain(vgg, decoder, test_args, "output/pretrain_benchmark.txt", "output/pretrain")
 
 
 # prune the weights
-vgg_masks = weight_prune(vgg, param['pruning_perc'])
+#vgg_masks = weight_prune(vgg, param['pruning_perc'])
 decoder_masks = weight_prune(decoder, param['pruning_perc'])
-net.set_enc_masks(vgg_masks)
+#net.set_enc_masks(vgg_masks)
 net.set_dec_masks(decoder_masks)
 net = nn.DataParallel(net).cuda()
 print("--- {}% parameters pruned ---".format(param['pruning_perc']))
-test_adain(vgg, decoder, "output/pruned_benchmark.txt", "output/pruned")
+test_adain(vgg, decoder, test_args, "output/pruned_benchmark.txt", "output/pruned")
 
 
 # Retraining
@@ -71,10 +75,10 @@ train_adain(net, param, Options().train_arg(), optimizer)
 
 # Check accuracy and nonzeros weights in each layer
 print("--- After retraining ---")
-test_adain(vgg, decoder, "output/retrain_benchmark.txt", "output/retrain")
+test_adain(vgg, decoder, test_args, "output/retrain_benchmark.txt", "output/retrain")
 prune_rate(net)
 
 
 # Save and load the entire model
-torch.save(vgg.state_dict(), 'models/vgg_pruned.pkl')
+#torch.save(vgg.state_dict(), 'models/vgg_pruned.pkl')
 torch.save(decoder.state_dict(), 'models/decoder_pruned.pkl')

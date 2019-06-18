@@ -12,6 +12,7 @@ import time
 from adain.options import Options
 from adain.test_function import *
 from torchvision.utils import save_image
+from itertools import product
 
 class FlatFolderDataset(data.Dataset):
     def __init__(self, root, transform):
@@ -83,46 +84,46 @@ def train_adain(model, param, args, optimizer):
     content_dataset = FlatFolderDataset(args.content_dir, content_tf)
     style_dataset = FlatFolderDataset(args.style_dir, style_tf)
 
-    content_iter = iter(data.DataLoader(
-        content_dataset, batch_size=param['batch_size'],
-        sampler=InfiniteSamplerWrapper(content_dataset),
-        num_workers=args.n_threads))
-    style_iter = iter(data.DataLoader(
-        style_dataset, batch_size=param['batch_size'],
-        sampler=InfiniteSamplerWrapper(style_dataset),
-        num_workers=args.n_threads))
-
     for epoch in range(param['num_epochs']):
+        content_iter = iter(data.DataLoader(
+            content_dataset, batch_size=param['batch_size'],
+            sampler=InfiniteSamplerWrapper(content_dataset),
+            num_workers=args.n_threads))
+        style_iter = iter(data.DataLoader(
+            style_dataset, batch_size=param['batch_size'],
+            sampler=InfiniteSamplerWrapper(style_dataset),
+            num_workers=args.n_threads))
+
         begin_time = time.time()
 
         print('Starting epoch %d / %d' % (epoch + 1, param['num_epochs']))
-        adjust_learning_rate(optimizer,epoch,args.lr, param['weight_decay'] )
-        content_images = next(content_iter).to(device)
-        style_images = next(style_iter).to(device)
-        loss_c, loss_s = model(content_images, style_images)
+        for i in range(args.max_iter):
+            adjust_learning_rate(optimizer,epoch,args.lr, param['weight_decay'] )
+            content_images = next(content_iter).to(device)
+            style_images = next(style_iter).to(device)
+            loss_c, loss_s = model(content_images, style_images)
 
-        loss_c = args.content_weight * loss_c
-        loss_s = args.style_weight * loss_s
-        loss = loss_c + loss_s
+            loss_c = args.content_weight * loss_c
+            loss_s = args.style_weight * loss_s
+            loss = loss_c + loss_s
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            print("Iterate %d times in epoch %d with loss at %.6f" % (i, epoch+1, loss))
 
         end_time = time.time()
         print("Training epoch  %d / %d takes %.3f seconds" %
               (epoch + 1, param['num_epochs'], end_time-begin_time))
-
     print("--- End training ---")
 
 
-def test_adain(vgg, decoder, filename, foldername):
+def test_adain(vgg, decoder, args, filename, foldername):
 
     print('--- Start testing ---')
     begin_time = time.time()
 
     # read parameters
-    args = Options().test_arg()
     do_interpolation, device, content_paths, style_paths, interpolation_weights = configuration(args)
 
     # set models in evaluation mode
@@ -245,7 +246,7 @@ def write_benchmark(benchmarks, filename):
         means.append(styleAVG)
 
     # Write the style avgs and stds
-    for i in range(5):
+    for i in range(benchmarks.shape[0]):
         f.write("Style " + str(i) + " avg: " + str(means[i]) + "\n")
         f.write("Style " + str(i) + " std: " + str(stds[i]) + "\n")
 

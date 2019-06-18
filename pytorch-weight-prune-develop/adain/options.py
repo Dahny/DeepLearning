@@ -61,14 +61,22 @@ class Options:
         return self.parser.parse_args()
 
     def test_arg(self):
-        args = self.parser.parse_args(['--content_dir', '../pytorch-AdaIN-master/input/content',
-                                  '--style_dir', '../pytorch-AdaIN-master/input/style'
+        args = self.parser.parse_args(['--content_dir', '../pytorch-AdaIN-master/input/style',
+                                  '--style_dir', '../pytorch-AdaIN-master/input/content'
                                   ])
         return args
 
     def train_arg(self):
         args = self.parser.parse_args(['--content_dir', './data/MSCOCO/val2017',
-                                       '--style_dir', '../pytorch-AdaIN-master/input/style',
-                                       '--save_dir', './models'
+                                       '--style_dir', './data/wikiart',
+                                       '--save_dir', './models',
+                                       '--max_iter', '20000'
                                        ])
+        return args
+
+    def poster_arg(self):
+        args = self.parser.parse_args(['--content_dir', './data/contentImages',
+                                  '--style_dir', './data/styleImages',
+                                  '--decoder', './models/decoder.pth'
+                                  ])
         return args
