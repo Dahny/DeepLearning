@@ -16,9 +16,11 @@ rm -f output.tar
 
 mkdir output
 mkdir output/pretrain
+mkdir output/pretrain_poster
 mkdir output/pruned
+mkdir output/pruned_poster
 mkdir output/retrain
-mkdir output/poster
+mkdir output/retrain_poster
 
 # Run weight pruning
 python weight_pruning_adain.py

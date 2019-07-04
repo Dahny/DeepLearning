@@ -70,7 +70,7 @@ class Options:
         args = self.parser.parse_args(['--content_dir', './data/MSCOCO/val2017',
                                        '--style_dir', './data/wikiart',
                                        '--save_dir', './models',
-                                       '--max_iter', '20000'
+                                       '--max_iter', '2000'
                                        ])
         return args
 

@@ -13,6 +13,7 @@ from adain.options import Options
 from adain.test_function import *
 from torchvision.utils import save_image
 from itertools import product
+import matplotlib.pyplot as plt
 
 class FlatFolderDataset(data.Dataset):
     def __init__(self, root, transform):
@@ -73,6 +74,7 @@ def train(model, loss_fn, optimizer, param, loader_train, loader_val=None):
          
 
 def train_adain(model, param, args, optimizer):
+
     print("--- Start training ---")
     device = torch.device('cuda')
     model.train()
@@ -93,6 +95,8 @@ def train_adain(model, param, args, optimizer):
             style_dataset, batch_size=param['batch_size'],
             sampler=InfiniteSamplerWrapper(style_dataset),
             num_workers=args.n_threads))
+        
+        loss_per_epoch = []
 
         begin_time = time.time()
 
@@ -106,6 +110,7 @@ def train_adain(model, param, args, optimizer):
             loss_c = args.content_weight * loss_c
             loss_s = args.style_weight * loss_s
             loss = loss_c + loss_s
+            loss_per_epoch.append(loss)
 
             optimizer.zero_grad()
             loss.backward()
@@ -115,7 +120,17 @@ def train_adain(model, param, args, optimizer):
         end_time = time.time()
         print("Training epoch  %d / %d takes %.3f seconds" %
               (epoch + 1, param['num_epochs'], end_time-begin_time))
+        
+        plot_loss_epoch(epoch + 1, args.max_iter, loss_per_epoch)
     print("--- End training ---")
+
+
+def plot_loss_epoch(epoch, max_iter, loss):
+    plt.plot(range(max_iter), loss)
+    plt.xlabel("Number of iteration")
+    plt.ylabel("Loss")
+    plt.title("Training curve at epoch " + str(epoch))
+    plt.savefig("plt/loss_" + str(epoch))
 
 
 def test_adain(vgg, decoder, args, filename, foldername):
